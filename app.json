@@ -19,7 +19,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.alex_kanta.ntsa_gvcu"
     },
     "web": {
       "favicon": "./assets/favicon.png"
