@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Animated, Alert } from "react-native";
+import React, { useState, useRef } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Animated, Alert, ScrollView, PanResponder } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
@@ -13,7 +13,7 @@ const Home: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const sidebarAnimation = new Animated.Value(0);
+  const sidebarAnimation = useRef(new Animated.Value(0)).current;
 
   const toggleSidebar = () => {
     const toValue = isSidebarOpen ? 0 : 1;
@@ -48,8 +48,44 @@ const Home: React.FC = () => {
     outputRange: [-SIDEBAR_WIDTH, 0],
   });
 
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dx) > 20;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (gestureState.dx > 0 && !isSidebarOpen) {
+          sidebarAnimation.setValue(gestureState.dx / SIDEBAR_WIDTH);
+        } else if (gestureState.dx < 0 && isSidebarOpen) {
+          sidebarAnimation.setValue(1 + gestureState.dx / SIDEBAR_WIDTH);
+        }
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx > SIDEBAR_WIDTH / 2) {
+          Animated.timing(sidebarAnimation, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }).start(() => setSidebarOpen(true));
+        } else if (gestureState.dx < -SIDEBAR_WIDTH / 2) {
+          Animated.timing(sidebarAnimation, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }).start(() => setSidebarOpen(false));
+        } else {
+          Animated.timing(sidebarAnimation, {
+            toValue: isSidebarOpen ? 1 : 0,
+            duration: 300,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...panResponder.panHandlers}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={toggleSidebar}>
@@ -133,32 +169,49 @@ const Home: React.FC = () => {
           { transform: [{ translateX: sidebarTranslateX }] }
         ]}
       >
-        <View style={styles.sidebarHeader}>
-          <Image 
-            source={require('../assets/user-avatar.png')} 
-            style={styles.avatar}
-          />
-          <Text style={styles.userName}>John Doe</Text>
-          <Text style={styles.userRole}>Administrator</Text>
-        </View>
+        <ScrollView>
+          <View style={styles.sidebarHeader}>
+            <Image 
+              source={require('../assets/user-avatar.png')} 
+              style={styles.avatar}
+            />
+            <Text style={styles.userName}>Alex Rotich</Text>
+            <Text style={styles.userRole}>Administrator</Text>
+          </View>
 
-        <TouchableOpacity style={styles.sidebarItem}>
-          <Icon name="cog" size={24} color={colors.primary} />
-          <Text style={styles.sidebarText}>Settings</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Icon name="cog" size={24} color={colors.primary} />
+            <Text style={styles.sidebarText}>Settings</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.sidebarItem}>
-          <Icon name="history" size={24} color={colors.primary} />
-          <Text style={styles.sidebarText}>Logs</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Icon name="history" size={24} color={colors.primary} />
+            <Text style={styles.sidebarText}>Logs</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.sidebarItem, styles.logoutButton]}
-          onPress={() => navigation.navigate("Login")}
-        >
-          <Icon name="logout" size={24} color="white" />
-          <Text style={[styles.sidebarText, { color: "white" }]}>Logout</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Icon name="account" size={24} color={colors.primary} />
+            <Text style={styles.sidebarText}>Profile</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Icon name="help-circle" size={24} color={colors.primary} />
+            <Text style={styles.sidebarText}>Help</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Icon name="information" size={24} color={colors.primary} />
+            <Text style={styles.sidebarText}>About</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.sidebarItem, styles.logoutButton]}
+            onPress={() => navigation.navigate("Login")}
+          >
+            <Icon name="logout" size={24} color="white" />
+            <Text style={[styles.sidebarText, { color: "white" }]}>Logout</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </Animated.View>
 
       {/* Overlay when sidebar is open */}
@@ -253,6 +306,7 @@ const styles = StyleSheet.create({
     width: SIDEBAR_WIDTH,
     backgroundColor: 'white',
     elevation: 5,
+    zIndex: 1000, // Ensure sidebar is above other elements
   },
   sidebarHeader: {
     padding: '5%',
@@ -300,6 +354,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 500, // Ensure overlay is above other elements but below sidebar
   },
   logoContainer: {
     alignItems: 'center',
